@@ -5,6 +5,8 @@ import { useMutation, useQueryClient, useQuery, keepPreviousData } from '@tansta
 import { useState } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
 import { fetchPosts } from '../../services/fetchPosts';
+import { useWindowWidth } from '../../hooks/useWindowWidth';
+import { useFetchPosts } from '../../hooks/useFetchPosts';
 
 type TodoInput = {
   title: string;
@@ -78,11 +80,11 @@ export default function App() {
   const [debouncedValue, setDebouncedValue] = useState("");
 
 
-  const { data: posts, isFetching } = useQuery({
-    queryKey: ['posts', debouncedValue],
-    queryFn: () => fetchPosts(debouncedValue),
-    placeholderData: keepPreviousData,
-  });
+  // const { data: posts, isFetching } = useQuery({
+  //   queryKey: ['posts', debouncedValue],
+  //   queryFn: () => fetchPosts(debouncedValue),
+  //   placeholderData: keepPreviousData,
+  // });
 
   const debouncedUpdate = useDebouncedCallback((value: string) => {
     setDebouncedValue(value);
@@ -92,8 +94,17 @@ export default function App() {
     debouncedUpdate(value);
   };
 
+  const windowWidth = useWindowWidth();
 
 
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const { data: posts, isFetching } = useFetchPosts(searchQuery);
+
+  const updateSearchQuery = useDebouncedCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value),
+    300
+  );
   return (
     <>
       <h1>Mutations</h1>
@@ -104,6 +115,23 @@ export default function App() {
       {mutation.isError && <div>An error occurred</div>}
       {mutation.isSuccess && <div>Todo added!</div>}
 
+
+      <input
+        type="text"
+        defaultValue={searchQuery}
+        onChange={updateSearchQuery}
+        placeholder="Search posts"
+      />
+      {isFetching && <div>Loading posts...</div>}
+      {posts && (
+        <ul>
+          {posts.map((post) => (
+            <li key={post.id}>{post.title}</li>
+          ))}
+        </ul>
+      )}
+      <p>Current window width: {windowWidth}px</p>;
+
       <input
         type="text"
 
@@ -111,6 +139,7 @@ export default function App() {
         onChange={(e) => handleChange(e.target.value)}
         placeholder="Search posts"
       />
+      {isFetching && <div>Loading...</div>}
       {posts && (
         <ul>
           {posts.map((post) => (
