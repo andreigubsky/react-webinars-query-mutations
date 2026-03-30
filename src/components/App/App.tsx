@@ -1,12 +1,20 @@
 //import { useState, useEffect } from 'react';
 import './App.css'
 import axios from 'axios'
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient, useQuery, keepPreviousData } from '@tanstack/react-query'
+import { useState } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
+import { fetchPosts } from '../../services/fetchPosts';
+
+type TodoInput = {
+  title: string;
+  completed: boolean;
+};
 
 export default function App() {
   //const [todo, setTodo] = useState(null);
 
-  const todoId = 2;
+  const todoId = 3;
 
   const newTodo = {
     title: "Title",
@@ -40,8 +48,8 @@ export default function App() {
 
   const queryClient = useQueryClient();
 
-  const mutation = useMutation({
-    mutationFn: async (newTodo2) => {
+  const mutation = useMutation<any, unknown, TodoInput>({
+    mutationFn: async (newTodo2: TodoInput) => {
       const res = await axios.post('https://jsonplaceholder.typicode.com/todos', newTodo2);
       return res.data;
     },
@@ -59,12 +67,32 @@ export default function App() {
   };
 
   const { data: todo } = useQuery({
-    queryKey: ['todos'],
+    queryKey: ['todos', todoId],
     queryFn: async () => {
       const res = await axios.get(`https://jsonplaceholder.typicode.com/todos/${todoId}`);
       return res.data;
     },
   });
+
+  const [inputValue, setInputValue] = useState("");
+  const [debouncedValue, setDebouncedValue] = useState("");
+
+
+  const { data: posts, isFetching } = useQuery({
+    queryKey: ['posts', debouncedValue],
+    queryFn: () => fetchPosts(debouncedValue),
+    placeholderData: keepPreviousData,
+  });
+
+  const debouncedUpdate = useDebouncedCallback((value: string) => {
+    setDebouncedValue(value);
+  }, 1000);
+  const handleChange = (value: string) => {
+    setInputValue(value);
+    debouncedUpdate(value);
+  };
+
+
 
   return (
     <>
@@ -75,6 +103,22 @@ export default function App() {
       {mutation.isPending && <div>Adding todo...</div>}
       {mutation.isError && <div>An error occurred</div>}
       {mutation.isSuccess && <div>Todo added!</div>}
+
+      <input
+        type="text"
+
+        value={inputValue}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder="Search posts"
+      />
+      {posts && (
+        <ul>
+          {posts.map((post) => (
+            <li key={post.id}>{post.title}</li>
+          ))}
+        </ul>
+      )}
+      <p>Text value: {inputValue}</p>
     </>
   )
 }
